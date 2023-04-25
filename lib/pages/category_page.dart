@@ -3,7 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:vts_component/vts_component.dart';
 
-import '../models/order_data.dart';
+import '../models/item_data.dart';
+import '../utils/build_context_ext.dart';
+import '../utils/constants.dart';
 
 class MyCategoryPage extends StatefulWidget {
   const MyCategoryPage({super.key});
@@ -13,16 +15,10 @@ class MyCategoryPage extends StatefulWidget {
 }
 
 class _MyCategoryPageState extends State<MyCategoryPage> {
-  final dataset = [
-    OrderData(name: 'Tra xanh Matcha', cost: 40000, count: 1),
-    OrderData(name: 'Tra dao', cost: 55000, count: 1),
-    OrderData(name: 'Hong tra xanh', cost: 35000, count: 1),
-    OrderData(name: 'Tra sua panda', cost: 35000, count: 1),
-  ];
-
-  late final listObjectItem = dataset
+  String? searchValue;
+  final searchList = fakeItemData
       .map(
-        (item) => VTSSelectObjectItem<OrderData>(
+        (item) => VTSSelectObjectItem<ItemData>(
           object: item,
           labelMappingFn: (i) => i.name,
           valueMappingFn: (i) => i.name,
@@ -30,19 +26,17 @@ class _MyCategoryPageState extends State<MyCategoryPage> {
       )
       .toList();
 
-  String? searchValue;
-
   @override
   Widget build(BuildContext context) {
-    var filter = [];
+    var filterList = [];
     if (searchValue != null) {
-      for (var el in dataset) {
+      for (var el in fakeItemData) {
         if (el.name.contains(searchValue!)) {
-          filter.add(el);
+          filterList.add(el);
         }
       }
     } else {
-      filter = dataset;
+      filterList = fakeItemData;
     }
 
     return Scaffold(
@@ -53,7 +47,7 @@ class _MyCategoryPageState extends State<MyCategoryPage> {
               margin: EdgeInsets.symmetric(vertical: 30, horizontal: 8),
               child: VTSSearchBar(
                 maxItemDropdown: 10,
-                items: listObjectItem,
+                items: searchList,
                 showAlways: true,
                 onSelectChange: (value) {
                   searchValue = value;
@@ -67,22 +61,20 @@ class _MyCategoryPageState extends State<MyCategoryPage> {
               ),
             ),
             SizedBox(
-              height: MediaQuery.of(context).size.height / 2,
+              height: context.height / 2,
               child: ListView.builder(
                 shrinkWrap: true,
-                itemCount: filter.length,
+                itemCount: filterList.length,
                 itemBuilder: (_, i) {
                   return Card(
                     margin: EdgeInsets.all(8),
                     child: ListTile(
-                      onTap: () {
-                        Navigator.pop(context, filter[i]);
-                      },
                       title: Text(
-                        filter[i].name,
+                        filterList[i].name,
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      subtitle: Text('${filter[i].cost} VND'),
+                      subtitle: Text('${filterList[i].price} VND'),
+                      onTap: () => Navigator.pop(context, filterList[i]),
                     ),
                   );
                 },

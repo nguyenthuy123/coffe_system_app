@@ -1,22 +1,23 @@
 // ignore_for_file: must_be_immutable, depend_on_referenced_packages
 
-import 'package:datn/models/item_data.dart';
 import 'package:equatable/equatable.dart';
 
-class OrderData extends Equatable {
-  const OrderData({
+class ItemData extends Equatable {
+  ItemData({
     required this.id,
     required this.name,
-    required this.itemDatas,
+    required this.price,
+    this.qty = 0,
   });
 
   final int id;
   final String name;
-  final List<ItemData> itemDatas;
+  final double price;
+  int qty;
 
   @override
   List<Object?> get props => [id];
 
   @override
-  String toString() => 'Order($id, $name, $itemDatas)';
+  String toString() => 'ItemData($id, $name, $price, $qty)';
 }

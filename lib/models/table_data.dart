@@ -6,20 +6,20 @@ import 'order_data.dart';
 
 class TableData extends Equatable {
   TableData({
+    required this.id,
     required this.name,
-    this.status = true,
-    required this.orders,
+    required this.status,
+    required this.orderData,
   });
 
-  String name;
+  final int id;
+  final String name;
   bool status;
-  List<OrderData> orders;
+  OrderData? orderData;
 
   @override
-  String toString() {
-    return '$name $status';
-  }
+  List<Object?> get props => [id];
 
   @override
-  List<Object?> get props => [name, status];
+  String toString() => 'TableData($id, $name, $status, $orderData)';
 }

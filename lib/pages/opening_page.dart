@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../utils/build_context_ext.dart';
 import 'home_page.dart';
 
 class MyOpeningPage extends StatefulWidget {
@@ -58,7 +59,7 @@ class _MyOpeningPageState extends State<MyOpeningPage> {
                     ),
                   ),
                 ),
-                SizedBox(height: MediaQuery.of(context).size.height / 3),
+                SizedBox(height: context.height / 3),
                 Column(
                   children: [
                     Padding(
@@ -88,7 +89,7 @@ class _MyOpeningPageState extends State<MyOpeningPage> {
                     Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: SizedBox(
-                        width: MediaQuery.of(context).size.width - 80,
+                        width: context.width - 80,
                         height: 50,
                         child: ElevatedButton(
                           onPressed: () {
