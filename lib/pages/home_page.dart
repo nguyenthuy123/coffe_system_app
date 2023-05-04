@@ -113,6 +113,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   buildAlertBody(TableData tableData, Function(void Function()) setState) {
+    print('abc');
     return tableData.orderData != null &&
             tableData.orderData!.itemDatas.isNotEmpty
         ? isAlertLoading
