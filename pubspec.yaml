@@ -9,16 +9,19 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.2
   intl: ^0.18.1
+  equatable: ^2.0.5
+  http: ^0.13.4
+  shared_preferences: ^2.1.0
+  vts_component:
+    git:
+      url: https://github.com/vts-contributor/vts-kit-flutter-component.git
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^2.0.0
-  equatable: ^2.0.5
-  http: ^0.13.4
-  vts_component:
-    git:
-      url: https://github.com/vts-contributor/vts-kit-flutter-component.git
+  floor_generator: ^1.4.2
+  build_runner: ^2.1.2
 
 flutter:
   uses-material-design: true

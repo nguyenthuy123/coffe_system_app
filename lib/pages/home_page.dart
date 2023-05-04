@@ -1,13 +1,17 @@
-// ignore_for_file: prefer_const_literals_to_create_immutables, prefer_const_constructors, avoid_unnecessary_containers
+// ignore_for_file: use_build_context_synchronously
+
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/item_data.dart';
 import '../models/order_data.dart';
+import '../models/user_data.dart';
 import '../models/table_data.dart';
+import '../utils/http_utils.dart';
 import '../utils/build_context_ext.dart';
-import '../utils/constants.dart';
 import 'category_page.dart';
 
 class MyHomePage extends StatefulWidget {
@@ -18,7 +22,12 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  bool isLoading = false;
+  bool isAlertLoading = false;
   ItemData? moreResult;
+  late SharedPreferences prefs;
+  UserData? userData;
+  List<TableData> tableDatas = [];
 
   buildHeader(String title, String subTitle) {
     return Expanded(
@@ -28,14 +37,14 @@ class _MyHomePageState extends State<MyHomePage> {
           children: [
             TextSpan(
               text: '$title\n',
-              style: TextStyle(
+              style: const TextStyle(
                 color: Colors.black,
                 fontWeight: FontWeight.bold,
               ),
             ),
             TextSpan(
               text: subTitle,
-              style: TextStyle(
+              style: const TextStyle(
                 color: Colors.grey,
                 fontStyle: FontStyle.italic,
                 fontWeight: FontWeight.bold,
@@ -55,13 +64,11 @@ class _MyHomePageState extends State<MyHomePage> {
       children: [
         Text(
           tableData.name,
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         GestureDetector(
           onTap: () async {
-            moreResult = await Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => MyCategoryPage()),
-            );
+            moreResult = await context.push(const MyCategoryPage());
 
             if (moreResult != null) {
               if (tableData.orderData == null) {
@@ -83,11 +90,12 @@ class _MyHomePageState extends State<MyHomePage> {
                 }
               }
             }
+            print(tableData);
 
             setState(() {});
           },
           child: Row(
-            children: [
+            children: const [
               Icon(Icons.add, color: Colors.green),
               Text(
                 'More',
@@ -107,93 +115,117 @@ class _MyHomePageState extends State<MyHomePage> {
   buildAlertBody(TableData tableData, Function(void Function()) setState) {
     return tableData.orderData != null &&
             tableData.orderData!.itemDatas.isNotEmpty
-        ? SingleChildScrollView(
-            child: Column(
-              children: [
-                SizedBox(
-                  width: double.maxFinite,
-                  height: MediaQuery.of(context).size.height / 4,
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: tableData.orderData!.itemDatas.length,
-                    itemBuilder: (_, i) {
-                      return Card(
-                        margin: EdgeInsets.symmetric(
-                          vertical: 8,
-                          horizontal: 1,
-                        ),
-                        child: Container(
-                          padding: EdgeInsets.all(10),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                tableData.orderData!.itemDatas[i].name,
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              Column(
+        ? isAlertLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: double.maxFinite,
+                      height: context.height / 4,
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: tableData.orderData!.itemDatas.length,
+                        itemBuilder: (_, i) {
+                          return Card(
+                            margin: const EdgeInsets.symmetric(
+                              vertical: 8,
+                              horizontal: 1,
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    '${tableData.orderData!.itemDatas[i].price * tableData.orderData!.itemDatas[i].qty} VND',
-                                  ),
-                                  Row(
+                                  Column(
                                     children: [
-                                      IconButton(
-                                        onPressed: () {
-                                          if (tableData
-                                                  .orderData!.itemDatas[i].qty >
-                                              0) {
-                                            tableData.orderData!.itemDatas[i]
-                                                .qty -= 1;
-                                            setState(() {});
-                                          }
-                                        },
-                                        icon: Icon(
-                                          Icons.remove,
-                                          color: Colors.red,
-                                        ),
+                                      Text(
+                                        tableData.orderData!.itemDatas[i].name,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold),
                                       ),
-                                      Container(
-                                        padding: EdgeInsets.all(10),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          tableData.orderData!.itemDatas[i].qty
-                                              .toString(),
-                                        ),
+                                      // const SizedBox(height: 10),
+                                      Text(
+                                        '${tableData.orderData!.itemDatas[i].price} VND',
                                       ),
-                                      IconButton(
-                                        onPressed: () {
-                                          tableData
-                                              .orderData!.itemDatas[i].qty += 1;
-                                          setState(() {});
-                                        },
-                                        icon: Icon(
-                                          Icons.add,
-                                          color: Colors.green,
-                                        ),
+                                    ],
+                                  ),
+                                  Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          IconButton(
+                                            onPressed: () {
+                                              if (tableData.orderData!
+                                                      .itemDatas[i].qty >
+                                                  0) {
+                                                tableData.orderData!
+                                                    .itemDatas[i].qty -= 1;
+
+                                                if (tableData.orderData!
+                                                        .itemDatas[i].qty ==
+                                                    0) {
+                                                  tableData.orderData!.itemDatas
+                                                      .remove(tableData
+                                                          .orderData!
+                                                          .itemDatas[i]);
+                                                }
+
+                                                setState(() {});
+                                              }
+                                            },
+                                            icon: const Icon(
+                                              Icons.remove,
+                                              color: Colors.red,
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.all(10),
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                10,
+                                              ),
+                                              border: Border.all(
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              tableData
+                                                  .orderData!.itemDatas[i].qty
+                                                  .toString(),
+                                            ),
+                                          ),
+                                          IconButton(
+                                            onPressed: () {
+                                              tableData.orderData!.itemDatas[i]
+                                                  .qty += 1;
+                                              setState(() {});
+                                            },
+                                            icon: const Icon(
+                                              Icons.add,
+                                              color: Colors.green,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Text(
+                                        '${tableData.orderData!.itemDatas[i].price * tableData.orderData!.itemDatas[i].qty} VND',
                                       ),
                                     ],
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          )
-        : Container(child: Text('No orders available'));
+              )
+        : const Text('No orders available');
   }
 
   buildAlertFooter(TableData tableData, Function(void Function()) setState) {
@@ -209,36 +241,55 @@ class _MyHomePageState extends State<MyHomePage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Summary', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Summary',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             Text('$summary VND'),
           ],
         ),
-        SizedBox(height: 10),
+        const SizedBox(height: 10),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
+          children: const [
             Text('VAT', style: TextStyle(fontWeight: FontWeight.bold)),
             Text('5%'),
           ],
         ),
-        SizedBox(height: 10),
+        const SizedBox(height: 10),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Payment', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Payment',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             Text('${summary * 1.05} VND'),
           ],
         ),
-        SizedBox(height: 15),
+        const SizedBox(height: 15),
         Row(
           children: [
             Expanded(
               child: Container(
-                margin: EdgeInsets.only(right: 5),
+                margin: const EdgeInsets.only(right: 5),
                 child: ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(
-                    tableData.orderData?.itemDatas.isEmpty,
-                  ),
+                  onPressed: () async {
+                    try {
+                      isAlertLoading = true;
+                      setState(() {});
+
+                      final result = await HttpUtils.saveOrder(
+                        userData!,
+                        tableData,
+                      );
+
+                      tableData.orderData!.itemDatas.clear();
+
+                      isAlertLoading = false;
+                      setState(() {});
+                      context.pop(result);
+                      // tableData.orderData?.itemDatas.isEmpty,
+                    } catch (e) {
+                      context.showSnackBar(e.toString());
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                   ),
@@ -251,7 +302,7 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             Expanded(
               child: Container(
-                margin: EdgeInsets.only(left: 5),
+                margin: const EdgeInsets.only(left: 5),
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(context).pop(true);
@@ -271,7 +322,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   buildDivider() {
-    return Divider(
+    return const Divider(
       height: 30,
       thickness: 1,
       color: Colors.grey,
@@ -279,17 +330,49 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    initUserData();
+  }
+
+  initUserData() async {
+    isLoading = true;
+    prefs = await SharedPreferences.getInstance();
+    userData = UserData.fromJson(jsonDecode(prefs.getString('user')!));
+    if (mounted) setState(() {});
+
+    initTableDatas(userData!.accessToken, userData!.storeId);
+  }
+
+  initTableDatas(String token, int storeId) async {
+    try {
+      final tableStr = await HttpUtils.getTableDatas(token, storeId);
+      final tableJson = json.decode(tableStr);
+      List<TableData>.from(
+        tableJson['data'].map((el) => tableDatas.add(TableData.fromJson(el))),
+      );
+      isLoading = false;
+      if (mounted) setState(() {});
+    } catch (e) {
+      context.showSnackBar(e.toString());
+    }
+
+    print(userData);
+    print(tableDatas);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: Container(
-          margin: EdgeInsets.symmetric(horizontal: 30),
+          margin: const EdgeInsets.symmetric(horizontal: 30),
           child: Column(
             children: [
-              SizedBox(height: 30),
+              const SizedBox(height: 30),
               Row(
                 children: [
-                  buildHeader('Co so Cau Giay', 'Nhan vien A'),
+                  buildHeader('Co so Cau Giay', userData?.name ?? ''),
                   buildHeader(
                     DateFormat('dd/MM/yyyy').format(DateTime.now()),
                     DateFormat('hh:mm a').format(DateTime.now()),
@@ -298,66 +381,70 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
               buildDivider(),
               Expanded(
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  itemCount: fakeTableData.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                  ),
-                  itemBuilder: (_, i) {
-                    return ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: fakeTableData[i].status
-                            ? Colors.green
-                            : Colors.grey,
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : GridView.builder(
+                        shrinkWrap: true,
+                        itemCount: tableDatas.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                        ),
+                        itemBuilder: (_, i) {
+                          return ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: tableDatas[i].status
+                                  ? Colors.grey
+                                  : Colors.green,
+                            ),
+                            onPressed: () async {
+                              tableDatas[i].status = await showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    isDismissible: false,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(32.0),
+                                    ),
+                                    builder: (_) {
+                                      return StatefulBuilder(
+                                        builder: (context, setState) =>
+                                            Container(
+                                          height: context.height * 2 / 3,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 32,
+                                          ),
+                                          child: Column(
+                                            children: [
+                                              buildAlertHeader(
+                                                tableDatas[i],
+                                                setState,
+                                              ),
+                                              buildDivider(),
+                                              buildAlertBody(
+                                                tableDatas[i],
+                                                setState,
+                                              ),
+                                              buildDivider(),
+                                              buildAlertFooter(
+                                                tableDatas[i],
+                                                setState,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ) ??
+                                  tableDatas[i].status;
+                              setState(() {});
+                            },
+                            child: Text(tableDatas[i].name),
+                          );
+                        },
                       ),
-                      onPressed: () async {
-                        fakeTableData[i].status = await showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              isDismissible: false,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(32.0),
-                              ),
-                              builder: (_) {
-                                return StatefulBuilder(
-                                  builder: (context, setState) => Container(
-                                    height: context.height * 2 / 3,
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 32,
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        buildAlertHeader(
-                                          fakeTableData[i],
-                                          setState,
-                                        ),
-                                        buildDivider(),
-                                        buildAlertBody(
-                                          fakeTableData[i],
-                                          setState,
-                                        ),
-                                        buildDivider(),
-                                        buildAlertFooter(
-                                          fakeTableData[i],
-                                          setState,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ) ??
-                            fakeTableData[i].status;
-                        setState(() {});
-                      },
-                      child: Text(fakeTableData[i].name),
-                    );
-                  },
-                ),
               ),
             ],
           ),
