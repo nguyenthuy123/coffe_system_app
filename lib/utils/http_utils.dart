@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../models/customer_data.dart';
 import '../models/user_data.dart';
 import '../models/table_data.dart';
 
@@ -91,6 +92,48 @@ class HttpUtils {
       );
 
       return response.statusCode == 200;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  static Future<String> getCustomerDatas(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/customer/list'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        return response.body;
+      } else {
+        throw Exception('${response.statusCode} - ${response.reasonPhrase}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  static Future<bool> saveCustomer(
+    UserData userData,
+    CustomerData customerData,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/customer/save'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-type': 'application/json',
+          'Authorization': 'Bearer ${userData.accessToken}',
+        },
+        body: jsonEncode(customerData),
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        throw Exception('${response.statusCode} - ${response.reasonPhrase}');
+      }
     } catch (e) {
       rethrow;
     }
