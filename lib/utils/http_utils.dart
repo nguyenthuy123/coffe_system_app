@@ -138,4 +138,49 @@ class HttpUtils {
       rethrow;
     }
   }
+
+  static Future<bool> payOrders(
+      UserData userData, TableData tableData, CustomerData? customerData,
+      [String paymentMethod = 'CASH']) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/${tableData.storeId}/bill/save'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-type': 'application/json',
+          'Authorization': 'Bearer ${userData.accessToken}',
+        },
+        body: jsonEncode({
+          'tableId': tableData.id,
+          'customerId': customerData?.id,
+          'employeeId': userData.id,
+          'paymentMethod': paymentMethod,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        throw Exception('${response.statusCode} - ${response.reasonPhrase}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  static Future<bool> logout(UserData userData) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/logout?token=${userData.accessToken}'),
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        throw Exception('${response.statusCode} - ${response.reasonPhrase}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

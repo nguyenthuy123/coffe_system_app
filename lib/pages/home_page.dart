@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/customer_data.dart';
 import '../models/item_data.dart';
 import '../models/order_data.dart';
 import '../models/user_data.dart';
@@ -25,9 +26,11 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   bool isLoading = false;
   bool isAlertLoading = false;
+  bool showReInitDatas = false;
   ItemData? moreResult;
   late SharedPreferences prefs;
   UserData? userData;
+  CustomerData? customerData;
   List<TableData> tableDatas = [];
 
   buildHeader(String title, String subTitle) {
@@ -54,6 +57,21 @@ class _MyHomePageState extends State<MyHomePage> {
           ],
         ),
       ),
+    );
+  }
+
+  buildFooter() {
+    return ElevatedButton(
+      onPressed: () async {
+        final result = await HttpUtils.logout(userData!);
+        if (result) {
+          prefs = await SharedPreferences.getInstance();
+          prefs.remove('user');
+          print(prefs.getString('user'));
+          context.pop();
+        }
+      },
+      child: const Text('Logout'),
     );
   }
 
@@ -91,7 +109,6 @@ class _MyHomePageState extends State<MyHomePage> {
                 }
               }
             }
-            print(tableData);
 
             setState(() {});
           },
@@ -114,7 +131,6 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   buildAlertBody(TableData tableData, Function(void Function()) setState) {
-    print('abc');
     return tableData.orderData != null &&
             tableData.orderData!.itemDatas.isNotEmpty
         ? isAlertLoading
@@ -147,7 +163,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                         style: const TextStyle(
                                             fontWeight: FontWeight.bold),
                                       ),
-                                      // const SizedBox(height: 10),
+                                      const SizedBox(height: 10),
                                       Text(
                                         '${tableData.orderData!.itemDatas[i].price} VND',
                                       ),
@@ -306,10 +322,50 @@ class _MyHomePageState extends State<MyHomePage> {
               child: Container(
                 margin: const EdgeInsets.only(left: 5),
                 child: ElevatedButton(
-                  onPressed: () {
-                    // Navigator.of(context).pop(true);
-                    context.push(const PayingPage());
-                    tableData.orderData = null;
+                  onPressed: () async {
+                    final data = await context.push(const PayingPage());
+                    customerData = data['customerData'];
+
+                    showDialog(
+                        context: context,
+                        builder: (_) {
+                          return AlertDialog(
+                            title: const Text(
+                              'Do you want to pay orders for this table?',
+                            ),
+                            actions: [
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                ),
+                                onPressed: () {
+                                  context.pop();
+                                },
+                                child: const Text('Cancel'),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                ),
+                                onPressed: () async {
+                                  final result = await HttpUtils.payOrders(
+                                    userData!,
+                                    tableData,
+                                    customerData,
+                                    data['paymentMethod'],
+                                  );
+                                  if (result) {
+                                    tableData.orderData = null;
+                                    context.pop(); // Exit alert dialog
+                                    showReInitDatas = true;
+                                  }
+                                  context.pop(); // Exit bottom dialog
+                                },
+                                child: const Text('OK'),
+                              ),
+                            ],
+                          );
+                        });
                   },
                   child: const Text(
                     'Pay',
@@ -351,6 +407,7 @@ class _MyHomePageState extends State<MyHomePage> {
     try {
       final tableStr = await HttpUtils.getTableDatas(token, storeId);
       final tableJson = json.decode(tableStr);
+      tableDatas.clear();
       List<TableData>.from(
         tableJson['data'].map((el) => tableDatas.add(TableData.fromJson(el))),
       );
@@ -361,11 +418,15 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     print(userData);
-    print(tableDatas);
   }
 
   @override
   Widget build(BuildContext context) {
+    if (showReInitDatas) {
+      initTableDatas(userData!.accessToken, userData!.storeId);
+      showReInitDatas = false;
+    }
+
     return Scaffold(
       body: SafeArea(
         child: Container(
@@ -449,6 +510,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         },
                       ),
               ),
+              buildFooter(),
             ],
           ),
         ),

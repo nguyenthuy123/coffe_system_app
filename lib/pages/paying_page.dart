@@ -27,6 +27,7 @@ class _PayingPageState extends State<PayingPage> {
   UserData? userData;
   List<CustomerData> itemDatas = [];
   List<VTSSelectItem> searchList = [];
+  String? paymentMethod = 'CASH';
 
   final customerNameController = TextEditingController();
   final customerPhoneController = TextEditingController();
@@ -121,6 +122,39 @@ class _PayingPageState extends State<PayingPage> {
                           const TextStyle(color: VTSColors.FUNC_RED_1),
                     ),
                   ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Payment method',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        DropdownButton(
+                          value: paymentMethod,
+                          icon: const Icon(Icons.keyboard_arrow_down),
+                          items: [
+                            'CASH',
+                            'BANK_TRANSFER',
+                            'CARD',
+                          ].map((String items) {
+                            return DropdownMenuItem(
+                              value: items,
+                              child: Text(items),
+                            );
+                          }).toList(),
+                          onChanged: (newValue) {
+                            paymentMethod = newValue!;
+                            setState(() {});
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                   Expanded(
                     child: isLoading
                         ? const Center(child: CircularProgressIndicator())
@@ -137,8 +171,10 @@ class _PayingPageState extends State<PayingPage> {
                                         fontWeight: FontWeight.bold),
                                   ),
                                   subtitle: Text(filterList[i].phone),
-                                  onTap: () =>
-                                      Navigator.pop(context, filterList[i]),
+                                  onTap: () => Navigator.pop(context, {
+                                    'customerData': filterList[i],
+                                    'paymentMethod': paymentMethod,
+                                  }),
                                 ),
                               );
                             },
@@ -147,131 +183,157 @@ class _PayingPageState extends State<PayingPage> {
                 ],
               ),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                await showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  isDismissible: false,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(32.0),
-                  ),
-                  builder: (_) {
-                    return StatefulBuilder(
-                      builder: (context, setState) => Container(
-                        height: context.height * 2 / 3,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 32,
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context, {
+                          'customerData': null,
+                          'paymentMethod': paymentMethod,
+                        });
+                      },
+                      child: const Text('Pay')),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        isDismissible: false,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(32.0),
                         ),
-                        child: isAlertLoading
-                            ? const Center(child: CircularProgressIndicator())
-                            : Column(
-                                children: [
-                                  const Text(
-                                    'Add new customer',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 24,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 30),
-                                  Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: TextField(
-                                      controller: customerNameController,
-                                      autofocus: true,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Customer Name',
-                                        border: OutlineInputBorder(),
-                                        suffixIcon: Icon(Icons.person),
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: TextField(
-                                      controller: customerPhoneController,
-                                      keyboardType: TextInputType.number,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Customer Phone',
-                                        border: OutlineInputBorder(),
-                                        suffixIcon: Icon(Icons.phone),
-                                      ),
-                                    ),
-                                  ),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Container(
-                                          margin:
-                                              const EdgeInsets.only(right: 5),
-                                          child: ElevatedButton(
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.red,
-                                            ),
-                                            onPressed: () {
-                                              customerNameController.clear();
-                                              customerPhoneController.clear();
-                                              context.pop();
-                                            },
-                                            child: const Text('Cancel'),
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Container(
-                                          margin:
-                                              const EdgeInsets.only(left: 5),
-                                          child: ElevatedButton(
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.green,
-                                            ),
-                                            onPressed: () async {
-                                              try {
-                                                isAlertLoading = true;
-                                                setState(() {});
-
-                                                final result = await HttpUtils
-                                                    .saveCustomer(
-                                                  userData!,
-                                                  CustomerData(
-                                                    name: customerNameController
-                                                        .text,
-                                                    phone:
-                                                        customerPhoneController
-                                                            .text,
-                                                  ),
-                                                );
-
-                                                isAlertLoading = false;
-                                                setState(() {});
-
-                                                showReInitDatas = true;
-                                                customerNameController.clear();
-                                                customerPhoneController.clear();
-                                                context.pop(result);
-                                              } catch (e) {
-                                                context.pop();
-                                                context
-                                                    .showSnackBar(e.toString());
-                                              }
-                                            },
-                                            child: const Text('OK'),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                ],
+                        builder: (_) {
+                          return StatefulBuilder(
+                            builder: (context, setState) => Container(
+                              height: context.height * 2 / 3,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 32,
                               ),
-                      ),
-                    );
-                  },
-                );
-                setState(() {});
-              },
-              child: const Text('New customer'),
+                              child: isAlertLoading
+                                  ? const Center(
+                                      child: CircularProgressIndicator())
+                                  : Column(
+                                      children: [
+                                        const Text(
+                                          'Add new customer',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 24,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 30),
+                                        Padding(
+                                          padding: const EdgeInsets.all(8.0),
+                                          child: TextField(
+                                            controller: customerNameController,
+                                            autofocus: true,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Customer Name',
+                                              border: OutlineInputBorder(),
+                                              suffixIcon: Icon(Icons.person),
+                                            ),
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.all(8.0),
+                                          child: TextField(
+                                            controller: customerPhoneController,
+                                            keyboardType: TextInputType.number,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Customer Phone',
+                                              border: OutlineInputBorder(),
+                                              suffixIcon: Icon(Icons.phone),
+                                            ),
+                                          ),
+                                        ),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Container(
+                                                margin: const EdgeInsets.only(
+                                                    right: 5),
+                                                child: ElevatedButton(
+                                                  style:
+                                                      ElevatedButton.styleFrom(
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                  onPressed: () {
+                                                    customerNameController
+                                                        .clear();
+                                                    customerPhoneController
+                                                        .clear();
+                                                    context.pop();
+                                                  },
+                                                  child: const Text('Cancel'),
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Container(
+                                                margin: const EdgeInsets.only(
+                                                    left: 5),
+                                                child: ElevatedButton(
+                                                  style:
+                                                      ElevatedButton.styleFrom(
+                                                    backgroundColor:
+                                                        Colors.green,
+                                                  ),
+                                                  onPressed: () async {
+                                                    try {
+                                                      isAlertLoading = true;
+                                                      setState(() {});
+
+                                                      final result =
+                                                          await HttpUtils
+                                                              .saveCustomer(
+                                                        userData!,
+                                                        CustomerData(
+                                                          name:
+                                                              customerNameController
+                                                                  .text,
+                                                          phone:
+                                                              customerPhoneController
+                                                                  .text,
+                                                        ),
+                                                      );
+
+                                                      isAlertLoading = false;
+                                                      setState(() {});
+
+                                                      showReInitDatas = true;
+                                                      customerNameController
+                                                          .clear();
+                                                      customerPhoneController
+                                                          .clear();
+                                                      context.pop(result);
+                                                    } catch (e) {
+                                                      context.pop();
+                                                      context.showSnackBar(
+                                                          e.toString());
+                                                    }
+                                                  },
+                                                  child: const Text('OK'),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      ],
+                                    ),
+                            ),
+                          );
+                        },
+                      );
+                      setState(() {});
+                    },
+                    child: const Text('New customer'),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
