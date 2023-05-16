@@ -318,62 +318,63 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ),
             ),
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.only(left: 5),
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final data = await context.push(const PayingPage());
-                    customerData = data['customerData'];
+            if (tableData.status)
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.only(left: 5),
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final data = await context.push(const PayingPage());
+                      customerData = data['customerData'];
 
-                    showDialog(
-                        context: context,
-                        builder: (_) {
-                          return AlertDialog(
-                            title: const Text(
-                              'Do you want to pay orders for this table?',
-                            ),
-                            actions: [
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
-                                ),
-                                onPressed: () {
-                                  context.pop();
-                                },
-                                child: const Text('Cancel'),
+                      showDialog(
+                          context: context,
+                          builder: (_) {
+                            return AlertDialog(
+                              title: const Text(
+                                'Do you want to pay orders for this table?',
                               ),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
+                              actions: [
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                  ),
+                                  onPressed: () {
+                                    context.pop();
+                                  },
+                                  child: const Text('Cancel'),
                                 ),
-                                onPressed: () async {
-                                  final result = await HttpUtils.payOrders(
-                                    userData!,
-                                    tableData,
-                                    customerData,
-                                    data['paymentMethod'],
-                                  );
-                                  if (result) {
-                                    tableData.orderData = null;
-                                    context.pop(); // Exit alert dialog
-                                    showReInitDatas = true;
-                                  }
-                                  context.pop(); // Exit bottom dialog
-                                },
-                                child: const Text('OK'),
-                              ),
-                            ],
-                          );
-                        });
-                  },
-                  child: const Text(
-                    'Pay',
-                    style: TextStyle(color: Colors.white),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                  ),
+                                  onPressed: () async {
+                                    final result = await HttpUtils.payOrders(
+                                      userData!,
+                                      tableData,
+                                      customerData,
+                                      data['paymentMethod'],
+                                    );
+                                    if (result) {
+                                      tableData.orderData = null;
+                                      context.pop(); // Exit alert dialog
+                                      showReInitDatas = true;
+                                    }
+                                    context.pop(); // Exit bottom dialog
+                                  },
+                                  child: const Text('OK'),
+                                ),
+                              ],
+                            );
+                          });
+                    },
+                    child: const Text(
+                      'Pay',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ],
