@@ -1,37 +1,43 @@
-// ignore_for_file: use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously, prefer_const_literals_to_create_immutables
 
 import 'dart:convert';
 
+import 'package:datn/models/customer_response/customer.dart';
+import 'package:datn/models/item_response/item.dart';
+import 'package:datn/models/table_response/order.dart';
+import 'package:datn/models/table_response/table_response.dart';
+import 'package:datn/models/table_response/table.dart' as m;
+import 'package:datn/models/user_response/user.dart';
+import 'package:datn/pages/item_page.dart';
+import 'package:datn/pages/payment_page.dart';
+import 'package:datn/utils/build_context_ext.dart';
+import 'package:datn/utils/http_utils.dart';
+import 'package:datn/widgets/button_widget.dart';
+import 'package:datn/widgets/text_content_widget.dart';
+import 'package:datn/widgets/text_link_widget.dart';
+import 'package:datn/widgets/text_subtitle_widget.dart';
+import 'package:datn/widgets/text_title_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/customer_data.dart';
-import '../models/item_data.dart';
-import '../models/order_data.dart';
-import '../models/user_data.dart';
-import '../models/table_data.dart';
-import '../utils/http_utils.dart';
-import '../utils/build_context_ext.dart';
-import 'category_page.dart';
-import 'paying_page.dart';
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key});
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<HomePage> createState() => _HomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _HomePageState extends State<HomePage> {
   bool isLoading = false;
   bool isAlertLoading = false;
+  bool isLoadingPayment = false;
   bool showReInitDatas = false;
-  ItemData? moreResult;
+  Item? moreItem;
   late SharedPreferences prefs;
-  UserData? userData;
-  CustomerData? customerData;
-  List<TableData> tableDatas = [];
+  User? user;
+  Customer? customer;
+  TableResponse? tableResponse;
 
   buildHeader(String title, String subTitle) {
     return Expanded(
@@ -61,51 +67,51 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   buildFooter() {
-    return ElevatedButton(
-      onPressed: () async {
-        final result = await HttpUtils.logout(userData!);
-        if (result) {
-          prefs = await SharedPreferences.getInstance();
-          prefs.remove('user');
-          print(prefs.getString('user'));
-          context.pop();
-        }
-      },
-      child: const Text('Logout'),
+    return Container(
+      margin: const EdgeInsets.only(left: 8, right: 8, top: 32),
+      child: Row(
+        children: [
+          ButtonWidget(
+            onPressed: () async {
+              if (await HttpUtils.logout(user!)) {
+                prefs.remove('user');
+                context.pop();
+              }
+            },
+            text: 'Logout',
+          ),
+        ],
+      ),
     );
   }
 
-  buildAlertHeader(TableData tableData, Function(void Function()) setState) {
+  buildAlertHeader(m.Table table, Function(void Function()) setState) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.baseline,
       textBaseline: TextBaseline.alphabetic,
       children: [
-        Text(
-          tableData.name,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
+        TextTitleWidget(text: table.name, type: TextTitleType.big),
         GestureDetector(
           onTap: () async {
-            moreResult = await context.push(const MyCategoryPage());
+            moreItem = await context.push(const ItemPage());
 
-            if (moreResult != null) {
-              if (tableData.orderData == null) {
-                tableData.orderData = OrderData(
+            if (moreItem != null) {
+              if (table.order == null) {
+                table.order = Order(
                   id: 1,
-                  name: 'Order of Table ${tableData.name}',
-                  itemDatas: [],
+                  name: 'More for ${table.name}',
+                  items: [],
                 );
-                moreResult!.qty++;
-                tableData.orderData!.itemDatas.add(moreResult!);
+                moreItem!.qty++;
+                table.order!.items.add(moreItem!);
               } else {
-                final i = tableData.orderData!.itemDatas
-                    .indexWhere((el) => el == moreResult);
+                final i = table.order!.items.indexWhere((el) => el == moreItem);
                 if (i >= 0) {
-                  tableData.orderData!.itemDatas[i].qty++;
+                  table.order!.items[i].qty++;
                 } else {
-                  moreResult!.qty++;
-                  tableData.orderData!.itemDatas.add(moreResult!);
+                  moreItem!.qty++;
+                  table.order!.items.add(moreItem!);
                 }
               }
             }
@@ -114,15 +120,8 @@ class _MyHomePageState extends State<MyHomePage> {
           },
           child: Row(
             children: const [
-              Icon(Icons.add, color: Colors.green),
-              Text(
-                'More',
-                style: TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
+              Icon(Icons.add, color: Colors.blue),
+              TextLinkWidget(link: 'More items'),
             ],
           ),
         )
@@ -130,112 +129,103 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  buildAlertBody(TableData tableData, Function(void Function()) setState) {
-    return tableData.orderData != null &&
-            tableData.orderData!.itemDatas.isNotEmpty
+  buildAlertBody(m.Table table, Function(void Function()) setState) {
+    return table.order != null && table.order!.items.isNotEmpty
         ? isAlertLoading
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
                 child: Column(
                   children: [
                     SizedBox(
-                      width: double.maxFinite,
                       height: context.height / 4,
                       child: ListView.builder(
                         shrinkWrap: true,
-                        itemCount: tableData.orderData!.itemDatas.length,
+                        itemCount: table.order!.items.length,
                         itemBuilder: (_, i) {
                           return Card(
-                            margin: const EdgeInsets.symmetric(
-                              vertical: 8,
-                              horizontal: 1,
-                            ),
+                            margin: const EdgeInsets.only(bottom: 8),
                             child: Container(
-                              padding: const EdgeInsets.all(10),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Column(
-                                    children: [
-                                      Text(
-                                        tableData.orderData!.itemDatas[i].name,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Text(
-                                        '${tableData.orderData!.itemDatas[i].price} VND',
-                                      ),
-                                    ],
-                                  ),
-                                  Column(
-                                    children: [
-                                      Row(
-                                        children: [
-                                          IconButton(
-                                            onPressed: () {
-                                              if (tableData.orderData!
-                                                      .itemDatas[i].qty >
-                                                  0) {
-                                                tableData.orderData!
-                                                    .itemDatas[i].qty -= 1;
-
-                                                if (tableData.orderData!
-                                                        .itemDatas[i].qty ==
+                                padding: const EdgeInsets.all(10),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        TextTitleWidget(
+                                          text: table.order!.items[i].name!,
+                                        ),
+                                        Row(
+                                          children: [
+                                            IconButton(
+                                              onPressed: () {
+                                                if (table.order!.items[i].qty >
                                                     0) {
-                                                  tableData.orderData!.itemDatas
-                                                      .remove(tableData
-                                                          .orderData!
-                                                          .itemDatas[i]);
-                                                }
+                                                  table.order!.items[i].qty -=
+                                                      1;
 
+                                                  if (table.order!.items[i]
+                                                          .qty ==
+                                                      0) {
+                                                    table.order!.items.remove(
+                                                      table.order!.items[i],
+                                                    );
+                                                  }
+
+                                                  setState(() {});
+                                                }
+                                              },
+                                              icon: const Icon(
+                                                Icons.remove,
+                                                color: Colors.red,
+                                              ),
+                                            ),
+                                            Container(
+                                              padding: const EdgeInsets.all(10),
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                                border: Border.all(
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                '${table.order!.items[i].qty}',
+                                              ),
+                                            ),
+                                            IconButton(
+                                              onPressed: () {
+                                                table.order!.items[i].qty += 1;
                                                 setState(() {});
-                                              }
-                                            },
-                                            icon: const Icon(
-                                              Icons.remove,
-                                              color: Colors.red,
-                                            ),
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.all(10),
-                                            decoration: BoxDecoration(
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                10,
-                                              ),
-                                              border: Border.all(
-                                                color: Colors.grey,
+                                              },
+                                              icon: const Icon(
+                                                Icons.add,
+                                                color: Colors.green,
                                               ),
                                             ),
-                                            child: Text(
-                                              tableData
-                                                  .orderData!.itemDatas[i].qty
-                                                  .toString(),
-                                            ),
-                                          ),
-                                          IconButton(
-                                            onPressed: () {
-                                              tableData.orderData!.itemDatas[i]
-                                                  .qty += 1;
-                                              setState(() {});
-                                            },
-                                            icon: const Icon(
-                                              Icons.add,
-                                              color: Colors.green,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      Text(
-                                        '${tableData.orderData!.itemDatas[i].price * tableData.orderData!.itemDatas[i].qty} VND',
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        TextTitleWidget(
+                                          text:
+                                              '${table.order!.items[i].price} VND',
+                                          type: TextTitleType.small,
+                                        ),
+                                        TextTitleWidget(
+                                          text:
+                                              '${table.order!.items[i].price! * table.order!.items[i].qty} VND',
+                                          type: TextTitleType.small,
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                )),
                           );
                         },
                       ),
@@ -243,14 +233,14 @@ class _MyHomePageState extends State<MyHomePage> {
                   ],
                 ),
               )
-        : const Text('No orders available');
+        : const TextSubtitleWidget(text: 'No orders available');
   }
 
-  buildAlertFooter(TableData tableData, Function(void Function()) setState) {
+  buildAlertFooter(m.Table table, Function(void Function()) setState) {
     var summary = .0;
-    if (tableData.orderData != null) {
-      for (var el in tableData.orderData!.itemDatas) {
-        summary += el.price * el.qty;
+    if (table.order != null) {
+      for (var el in table.order!.items) {
+        summary += el.price! * el.qty;
       }
     }
 
@@ -259,121 +249,111 @@ class _MyHomePageState extends State<MyHomePage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Summary',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            Text('$summary VND'),
+            const TextTitleWidget(text: 'Summary'),
+            TextContentWidget(text: '$summary VND'),
           ],
         ),
         const SizedBox(height: 10),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: const [
-            Text('VAT', style: TextStyle(fontWeight: FontWeight.bold)),
-            Text('5%'),
+            TextTitleWidget(text: 'VAT'),
+            TextContentWidget(text: '5%'),
           ],
         ),
         const SizedBox(height: 10),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Payment',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            Text('${summary * 1.05} VND'),
+            const TextTitleWidget(text: 'Payment'),
+            TextContentWidget(text: '${summary * 1.05} VND'),
           ],
         ),
         const SizedBox(height: 15),
         Row(
           children: [
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.only(right: 5),
-                child: ElevatedButton(
-                  onPressed: () async {
-                    try {
-                      isAlertLoading = true;
-                      setState(() {});
+            ButtonWidget(
+              onPressed: () async {
+                try {
+                  isAlertLoading = true;
+                  setState(() {});
 
-                      final result = await HttpUtils.saveOrder(
-                        userData!,
-                        tableData,
-                      );
+                  final result = await HttpUtils.saveOrder(user!, table);
+                  // tableData.orderData!.itemDatas.clear();
 
-                      // tableData.orderData!.itemDatas.clear();
+                  isAlertLoading = false;
+                  setState(() {});
 
-                      isAlertLoading = false;
-                      setState(() {});
-                      context.pop(result);
-                      // tableData.orderData?.itemDatas.isEmpty,
-                    } catch (e) {
-                      context.showSnackBar(e.toString());
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                  ),
-                  child: const Text(
-                    'Ok',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ),
+                  context.pop(result);
+                } catch (e) {
+                  context.showSnackBar(e.toString());
+                }
+              },
+              color: Colors.green,
+              text: 'Ok',
             ),
-            if (tableData.status)
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.only(left: 5),
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final data = await context.push(const PayingPage());
-                      customerData = data['customerData'];
+            if (table.status!) const SizedBox(width: 10),
+            if (table.status!)
+              ButtonWidget(
+                onPressed: () async {
+                  final data = await context.push(const PaymentPage());
+                  customer = data?['customer'];
 
-                      showDialog(
-                          context: context,
-                          builder: (_) {
-                            return AlertDialog(
-                              title: const Text(
-                                'Do you want to pay orders for this table?',
-                              ),
-                              actions: [
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
-                                  ),
-                                  onPressed: () {
-                                    context.pop();
-                                  },
-                                  child: const Text('Cancel'),
+                  showDialog(
+                      context: context,
+                      builder: (_) {
+                        return AlertDialog(
+                          title: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const TextTitleWidget(text: 'Pay order'),
+                              if (isLoadingPayment)
+                                const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(),
                                 ),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                  ),
-                                  onPressed: () async {
-                                    final result = await HttpUtils.payOrders(
-                                      userData!,
-                                      tableData,
-                                      customerData,
-                                      data['paymentMethod'],
-                                    );
-                                    if (result) {
-                                      tableData.orderData = null;
-                                      context.pop(); // Exit alert dialog
-                                      showReInitDatas = true;
-                                    }
-                                    context.pop(); // Exit bottom dialog
-                                  },
-                                  child: const Text('OK'),
-                                ),
-                              ],
-                            );
-                          });
-                    },
-                    child: const Text(
-                      'Pay',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ),
+                            ],
+                          ),
+                          content: const TextSubtitleWidget(
+                            text: 'Do you want to pay orders for this table?',
+                          ),
+                          actions: [
+                            ButtonWidget(
+                              color: Colors.red,
+                              onPressed: () => context.pop(),
+                              text: 'Cancel',
+                              isExpanded: false,
+                            ),
+                            ButtonWidget(
+                              onPressed: () async {
+                                isLoadingPayment = true;
+                                setState(() {});
+
+                                if (await HttpUtils.payOrders(
+                                  user!,
+                                  table,
+                                  customer,
+                                  data['paymentMethod'],
+                                )) {
+                                  table.order = null;
+                                  context.pop(); // Exit alert dialog
+                                  showReInitDatas = true;
+                                }
+
+                                isLoadingPayment = false;
+                                setState(() {});
+
+                                context.pop(); // Exit bottom dialog
+                              },
+                              text: 'OK',
+                              isExpanded: false,
+                            ),
+                          ],
+                        );
+                      });
+                },
+                text: 'Pay',
               ),
           ],
         ),
@@ -382,49 +362,46 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   buildDivider() {
-    return const Divider(
-      height: 30,
-      thickness: 1,
-      color: Colors.grey,
-    );
+    return const Divider(height: 30, thickness: 1, color: Colors.grey);
+  }
+
+  getTables() async {
+    try {
+      tableResponse = await HttpUtils.getTables(user!);
+    } catch (e) {
+      context.showSnackBar(e.toString());
+    }
+
+    isLoading = false;
+    if (mounted) setState(() {});
+  }
+
+  getUser() async {
+    isLoading = true;
+    if (mounted) setState(() {});
+
+    await initSharedPreferences();
+
+    user = User.fromJson(jsonDecode(prefs.getString('user')!));
+    print(user);
+
+    await getTables();
+  }
+
+  initSharedPreferences() async {
+    prefs = await SharedPreferences.getInstance();
   }
 
   @override
   void initState() {
     super.initState();
-    initUserData();
-  }
-
-  initUserData() async {
-    isLoading = true;
-    prefs = await SharedPreferences.getInstance();
-    userData = UserData.fromJson(jsonDecode(prefs.getString('user')!));
-    if (mounted) setState(() {});
-
-    initTableDatas(userData!.accessToken, userData!.storeId);
-  }
-
-  initTableDatas(String token, int storeId) async {
-    try {
-      final tableStr = await HttpUtils.getTableDatas(token, storeId);
-      final tableJson = json.decode(tableStr);
-      tableDatas.clear();
-      List<TableData>.from(
-        tableJson['data'].map((el) => tableDatas.add(TableData.fromJson(el))),
-      );
-      isLoading = false;
-      if (mounted) setState(() {});
-    } catch (e) {
-      context.showSnackBar(e.toString());
-    }
-
-    print(userData);
+    getUser();
   }
 
   @override
   Widget build(BuildContext context) {
     if (showReInitDatas) {
-      initTableDatas(userData!.accessToken, userData!.storeId);
+      getTables();
       showReInitDatas = false;
     }
 
@@ -434,10 +411,9 @@ class _MyHomePageState extends State<MyHomePage> {
           margin: const EdgeInsets.symmetric(horizontal: 30),
           child: Column(
             children: [
-              const SizedBox(height: 30),
               Row(
                 children: [
-                  buildHeader('Co so Cau Giay', userData?.name ?? ''),
+                  buildHeader('Co so Cau Giay', user?.name ?? ''),
                   buildHeader(
                     DateFormat('dd/MM/yyyy').format(DateTime.now()),
                     DateFormat('hh:mm a').format(DateTime.now()),
@@ -449,8 +425,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : GridView.builder(
-                        shrinkWrap: true,
-                        itemCount: tableDatas.length,
+                        itemCount: tableResponse!.tables!.length,
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 3,
@@ -458,14 +433,15 @@ class _MyHomePageState extends State<MyHomePage> {
                           mainAxisSpacing: 16,
                         ),
                         itemBuilder: (_, i) {
+                          final table = tableResponse!.tables![i];
+
                           return ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: tableDatas[i].status
-                                  ? Colors.grey
-                                  : Colors.green,
+                              backgroundColor:
+                                  table.status! ? Colors.grey : Colors.green,
                             ),
                             onPressed: () async {
-                              tableDatas[i].status = await showModalBottomSheet(
+                              table.status = await showModalBottomSheet(
                                     context: context,
                                     isScrollControlled: true,
                                     isDismissible: false,
@@ -483,30 +459,21 @@ class _MyHomePageState extends State<MyHomePage> {
                                           ),
                                           child: Column(
                                             children: [
-                                              buildAlertHeader(
-                                                tableDatas[i],
-                                                setState,
-                                              ),
+                                              buildAlertHeader(table, setState),
                                               buildDivider(),
-                                              buildAlertBody(
-                                                tableDatas[i],
-                                                setState,
-                                              ),
+                                              buildAlertBody(table, setState),
                                               buildDivider(),
-                                              buildAlertFooter(
-                                                tableDatas[i],
-                                                setState,
-                                              ),
+                                              buildAlertFooter(table, setState),
                                             ],
                                           ),
                                         ),
                                       );
                                     },
                                   ) ??
-                                  tableDatas[i].status;
+                                  table.status;
                               setState(() {});
                             },
-                            child: Text(tableDatas[i].name),
+                            child: Text(table.name!),
                           );
                         },
                       ),

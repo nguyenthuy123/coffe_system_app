@@ -1,187 +1,131 @@
-// ignore_for_file: depend_on_referenced_packages
-
 import 'dart:convert';
 
+import 'package:datn/models/customer_response/customer.dart';
+import 'package:datn/models/item_response/item_response.dart';
+import 'package:datn/models/table_response/table.dart';
+import 'package:datn/models/table_response/table_response.dart';
+import 'package:datn/models/user_response/user.dart';
+import 'package:datn/models/user_response/user_response.dart';
 import 'package:http/http.dart' as http;
 
-import '../models/customer_data.dart';
-import '../models/user_data.dart';
-import '../models/table_data.dart';
-
 class HttpUtils {
-  static String baseUrl = 'http://localhost:8080';
-  // static String baseUrl = 'https://coffesystem-production.up.railway.app';
+  // static String baseUrl = 'http://localhost:8080';
+  static String baseUrl = 'https://coffesystem-production.up.railway.app';
 
-  static Future<String> login(String username, String password) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/login/'),
-        headers: {
-          'Accept': 'application/json',
-          'Content-type': 'application/json'
-        },
-        body: jsonEncode({'username': username, 'password': password}),
-      );
+  static Future<UserResponse?> login(String username, String password) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/login/'),
+      headers: {
+        'Accept': 'application/json',
+        'Content-type': 'application/json',
+      },
+      body: jsonEncode({'username': username, 'password': password}),
+    );
 
-      if (response.statusCode == 200) {
-        return response.body;
-      } else {
-        throw Exception('${response.statusCode} - ${response.reasonPhrase}');
-      }
-    } catch (e) {
-      rethrow;
-    }
+    return response.statusCode == 200
+        ? UserResponse.fromJson(jsonDecode(response.body))
+        : null;
   }
 
-  static Future<String> getItemDatas(String token) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/item/list'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
+  static Future<bool> logout(User user) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/logout?token=${user.accessToken}'),
+    );
 
-      if (response.statusCode == 200) {
-        return response.body;
-      } else {
-        throw Exception('${response.statusCode} - ${response.reasonPhrase}');
-      }
-    } catch (e) {
-      rethrow;
-    }
+    return response.statusCode == 200;
   }
 
-  static Future<String> getTableDatas(String token, int storeId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/$storeId/table/list'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
+  static Future<TableResponse?> getTables(User user) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/${user.storeId}/table/list'),
+      headers: {'Authorization': 'Bearer ${user.accessToken}'},
+    );
 
-      if (response.statusCode == 200) {
-        return response.body;
-      } else {
-        throw Exception('${response.statusCode} - ${response.reasonPhrase}');
-      }
-    } catch (e) {
-      rethrow;
-    }
+    return response.statusCode == 200
+        ? TableResponse.fromJson(jsonDecode(response.body))
+        : null;
   }
 
-  static Future<bool> saveOrder(UserData userData, TableData tableData) async {
-    try {
-      final dataset = <String, dynamic>{
-        'listItemRequest': [],
-        'tableId': tableData.id,
-        'employeeId': userData.id,
-      };
+  static Future<ItemResponse?> getItems(User user) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/item/list'),
+      headers: {'Authorization': 'Bearer ${user.accessToken}'},
+    );
 
-      for (var el in tableData.orderData!.itemDatas) {
-        (dataset['listItemRequest'] as List<dynamic>).add({
-          'id': el.id,
-          'quantity': el.qty,
-        });
-      }
-
-      final response = await http.post(
-        Uri.parse('$baseUrl/${userData.storeId}/order/save'),
-        headers: {
-          'Accept': 'application/json',
-          'Content-type': 'application/json',
-          'Authorization': 'Bearer ${userData.accessToken}',
-        },
-        body: jsonEncode(dataset),
-      );
-
-      return response.statusCode == 200;
-    } catch (e) {
-      rethrow;
-    }
+    return response.statusCode == 200
+        ? ItemResponse.fromJson(jsonDecode(response.body))
+        : null;
   }
 
-  static Future<String> getCustomerDatas(String token) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/customer/list'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
+  static Future<bool> saveOrder(User user, Table table) async {
+    final dataset = <String, dynamic>{
+      'listItemRequest': [],
+      'tableId': table.id,
+      'employeeId': user.employeeId,
+    };
 
-      if (response.statusCode == 200) {
-        return response.body;
-      } else {
-        throw Exception('${response.statusCode} - ${response.reasonPhrase}');
-      }
-    } catch (e) {
-      rethrow;
+    for (var el in table.order!.items) {
+      (dataset['listItemRequest'] as List<dynamic>).add({
+        'id': el.id,
+        'quantity': el.qty,
+      });
     }
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/${user.storeId}/order/save'),
+      headers: {
+        'Accept': 'application/json',
+        'Content-type': 'application/json',
+        'Authorization': 'Bearer ${user.accessToken}',
+      },
+      body: jsonEncode(dataset),
+    );
+
+    return response.statusCode == 200;
   }
 
-  static Future<bool> saveCustomer(
-    UserData userData,
-    CustomerData customerData,
-  ) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/customer/save'),
-        headers: {
-          'Accept': 'application/json',
-          'Content-type': 'application/json',
-          'Authorization': 'Bearer ${userData.accessToken}',
-        },
-        body: jsonEncode(customerData),
-      );
+  static Future<List<Customer>> getCustomers(User user) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/customer/list'),
+      headers: {'Authorization': 'Bearer ${user.accessToken}'},
+    );
 
-      if (response.statusCode == 200) {
-        return true;
-      } else {
-        throw Exception('${response.statusCode} - ${response.reasonPhrase}');
-      }
-    } catch (e) {
-      rethrow;
-    }
+    return (jsonDecode(response.body) as List<dynamic>)
+        .map((el) => Customer.fromJson(el as Map<String, dynamic>))
+        .toList();
   }
 
-  static Future<bool> payOrders(
-      UserData userData, TableData tableData, CustomerData? customerData,
+  static Future<bool> saveCustomer(User user, Customer customer) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/customer/save'),
+      headers: {
+        'Accept': 'application/json',
+        'Content-type': 'application/json',
+        'Authorization': 'Bearer ${user.accessToken}',
+      },
+      body: jsonEncode(customer),
+    );
+
+    return response.statusCode == 200;
+  }
+
+  static Future<bool> payOrders(User user, Table table, Customer? customer,
       [String paymentMethod = 'CASH']) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/${tableData.storeId}/bill/save'),
-        headers: {
-          'Accept': 'application/json',
-          'Content-type': 'application/json',
-          'Authorization': 'Bearer ${userData.accessToken}',
-        },
-        body: jsonEncode({
-          'tableId': tableData.id,
-          'customerId': customerData?.id,
-          'employeeId': userData.id,
-          'paymentMethod': paymentMethod,
-        }),
-      );
+    final response = await http.post(
+      Uri.parse('$baseUrl/${table.storeId}/bill/save'),
+      headers: {
+        'Accept': 'application/json',
+        'Content-type': 'application/json',
+        'Authorization': 'Bearer ${user.accessToken}',
+      },
+      body: jsonEncode({
+        'tableId': table.id,
+        'customerId': customer?.id,
+        'employeeId': user.employeeId,
+        'paymentMethod': paymentMethod,
+      }),
+    );
 
-      if (response.statusCode == 200) {
-        return true;
-      } else {
-        throw Exception('${response.statusCode} - ${response.reasonPhrase}');
-      }
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  static Future<bool> logout(UserData userData) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/logout?token=${userData.accessToken}'),
-      );
-
-      if (response.statusCode == 200) {
-        return true;
-      } else {
-        throw Exception('${response.statusCode} - ${response.reasonPhrase}');
-      }
-    } catch (e) {
-      rethrow;
-    }
+    return response.statusCode == 200;
   }
 }
